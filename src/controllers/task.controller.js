@@ -23,9 +23,10 @@ exports.createTask = async (req, res) => {
 
 exports.getTasks = async (req, res) => {
   try {
-    const { status, search } = req.query;
+    const { status, search, priority } = req.query;
     let query = { userId: req.user._id };
     if (status) query.status = status;
+    if (priority) query.priority = priority;
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
