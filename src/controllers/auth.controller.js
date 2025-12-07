@@ -1,6 +1,7 @@
 const User = require('../models/user.model');
 const bcrypt = require('bcryptjs');
 const { generateToken } = require('../utils/token');
+const { validatePasswordStrength } = require('../utils/passwordValidator');
 
 exports.signup = async (req, res) => {
   try {
@@ -8,6 +9,13 @@ exports.signup = async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' });
     }
+
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({ message: passwordValidation.message });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ message: 'Email already in use' });
