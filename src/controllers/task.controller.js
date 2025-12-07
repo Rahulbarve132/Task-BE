@@ -23,16 +23,60 @@ exports.createTask = async (req, res) => {
 
 exports.getTasks = async (req, res) => {
   try {
-    const { status, search, priority } = req.query;
+    const { status, search, priority, dueDate, dueDateFrom, dueDateTo, overdue, upcoming } = req.query;
     let query = { userId: req.user._id };
+    
+    // Status filter
     if (status) query.status = status;
+    
+    // Priority filter
     if (priority) query.priority = priority;
+    
+    // Search filter
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
       ];
     }
+    
+    // Due date filters
+    if (dueDate) {
+      // Filter by specific date
+      const startOfDay = new Date(dueDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(dueDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      query.dueDate = { $gte: startOfDay, $lte: endOfDay };
+    } else if (dueDateFrom || dueDateTo) {
+      // Filter by date range
+      query.dueDate = {};
+      if (dueDateFrom) {
+        const fromDate = new Date(dueDateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        query.dueDate.$gte = fromDate;
+      }
+      if (dueDateTo) {
+        const toDate = new Date(dueDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        query.dueDate.$lte = toDate;
+      }
+    } else if (overdue === 'true') {
+      // Filter overdue tasks (due date is in the past and status is not completed)
+      const now = new Date();
+      query.dueDate = { $lt: now };
+      query.status = { $ne: 'completed' };
+    } else if (upcoming) {
+      // Filter upcoming tasks (due within specified number of days)
+      const days = parseInt(upcoming);
+      if (!isNaN(days) && days > 0) {
+        const now = new Date();
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + days);
+        query.dueDate = { $gte: now, $lte: futureDate };
+      }
+    }
+    
     const tasks = await Task.find(query);
     return res.status(200).json({ tasks });
   } catch (error) {
